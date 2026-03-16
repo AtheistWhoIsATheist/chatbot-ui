@@ -290,3 +290,10 @@ We are working on a guide for contributing.
 ## Contact
 
 Message Mckay on [Twitter/X](https://twitter.com/mckaywrigley)
+
+
+## Repository Hygiene
+
+- See `docs/REPOSITORY_STRUCTURE.md` for the canonical folder/file layout.
+- Use issue templates under `.github/ISSUE_TEMPLATE/` and PR template `.github/PULL_REQUEST_TEMPLATE.md`.
+

@@ -1,0 +1,183 @@
+import { GoogleGenAI, Type } from '@google/genai';
+import { AdversarialLedger, ConceptAudit, PhiQLResult, Artifact } from '../types';
+import { SYSTEM_INSTRUCTION, MODEL_CHAT_DEEP } from '../constants';
+
+const apiKey = process.env.API_KEY || '';
+let ai: GoogleGenAI | null = null;
+
+const getAI = () => {
+    if (!ai) {
+        ai = new GoogleGenAI({ apiKey });
+    }
+    return ai;
+};
+
+/**
+ * METHOD: ADVERSARIAL LOOP (8.3)
+ * Steelman -> Red-Team -> Formalize -> Countermodel -> Repair
+ */
+export async function runAdversarialLoop(thesis: string): Promise<AdversarialLedger> {
+    const loopSchema = {
+        type: Type.OBJECT,
+        properties: {
+            thesis: { type: Type.STRING },
+            status: { type: Type.STRING, enum: ['INITIATED', 'COMPLETED', 'FAILED'] },
+            robustness_score: { type: Type.NUMBER },
+            history: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        phase: { type: Type.STRING, enum: ['STEELMAN', 'RED_TEAM', 'FORMALIZE', 'COUNTERMODEL', 'REPAIR'] },
+                        content: { type: Type.STRING },
+                        metadata: { type: Type.OBJECT }
+                    },
+                    required: ['phase', 'content']
+                }
+            }
+        },
+        required: ['thesis', 'status', 'history', 'robustness_score']
+    };
+
+    const prompt = `[WORKFLOW_EXECUTION] INITIATE ADVERSARIAL_LOOP.
+    THESIS: "${thesis}"
+    
+    EXECUTION STEPS:
+    1. Steelman: Construct the strongest version of the thesis.
+    2. Red-Team: Generate lethal objections.
+    3. Formalize: Translate to Logic (FOL/Modal).
+    4. Countermodel: Find a scenario where premises hold but conclusion fails.
+    5. Repair: Propose minimal delta to fix the thesis.
+    
+    OUTPUT: structured JSON ledger.`;
+
+    const response = await getAI().models.generateContent({
+        model: MODEL_CHAT_DEEP,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: loopSchema,
+            systemInstruction: SYSTEM_INSTRUCTION
+        }
+    });
+
+    const text = response.text || '{}';
+    return JSON.parse(text) as AdversarialLedger;
+}
+
+/**
+ * METHOD: CONCEPT AUDIT (8.1)
+ * Definition discipline and equivocation detection.
+ */
+export async function runConceptAudit(term: string): Promise<ConceptAudit> {
+    const auditSchema = {
+        type: Type.OBJECT,
+        properties: {
+            term: { type: Type.STRING },
+            status: { type: Type.STRING, enum: ['APPROVED', 'FLAGGED'] },
+            ambiguity_ratio: { type: Type.NUMBER },
+            definitions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            canonical_definition: { type: Type.STRING }
+        },
+        required: ['term', 'status', 'ambiguity_ratio', 'definitions']
+    };
+
+    const prompt = `[WORKFLOW_EXECUTION] RUN CONCEPT_AUDIT.
+    TERM: "${term}"
+    
+    TASKS:
+    1. Collect uses and definitions from philosophical corpus context.
+    2. Cluster senses.
+    3. Calculate ambiguity ratio (0 = clear, 1 = total confusion).
+    4. Define canonical version.`;
+
+    const response = await getAI().models.generateContent({
+        model: MODEL_CHAT_DEEP,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: auditSchema,
+            systemInstruction: SYSTEM_INSTRUCTION
+        }
+    });
+
+    return JSON.parse(response.text || '{}') as ConceptAudit;
+}
+
+/**
+ * PHI-QL QUERY EXECUTION (9)
+ * Handles WHY, TRACE, COUNTEREX, REPAIR queries.
+ */
+export async function runPhiQL(queryType: 'WHY' | 'TRACE' | 'COUNTEREX' | 'REPAIR', input: string): Promise<PhiQLResult> {
+    // Dynamic schema based on query type would be better, but we use a generic result wrapper for now
+    const phiQLSchema = {
+        type: Type.OBJECT,
+        properties: {
+            query: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ['WHY', 'TRACE', 'COUNTEREX', 'REPAIR'] },
+            result: { 
+                type: Type.OBJECT,
+                description: "Structured result depending on query type (e.g. proof trace, counterexample list)"
+            }
+        },
+        required: ['query', 'type', 'result']
+    };
+
+    const prompt = `[WORKFLOW_EXECUTION] EXECUTE PHI-QL QUERY.
+    TYPE: ${queryType}
+    INPUT: "${input}"
+    
+    LOGIC:
+    - WHY: Return explanatory proof tree.
+    - TRACE: Return historical/logical lineage.
+    - COUNTEREX: Return valid countermodels.
+    - REPAIR: Return minimal logical edits.
+    `;
+
+    const response = await getAI().models.generateContent({
+        model: MODEL_CHAT_DEEP,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: phiQLSchema,
+            systemInstruction: SYSTEM_INSTRUCTION
+        }
+    });
+
+    return JSON.parse(response.text || '{}') as PhiQLResult;
+}
+
+/**
+ * Main Entry Point for Command Processing
+ */
+export async function processCommand(input: string): Promise<Artifact | null> {
+    // 1. Detect Adversarial Loop
+    if (input.match(/^INITIATE ADVERSARIAL_LOOP/i)) {
+        const match = input.match(/thesis=["'](.*?)["']/);
+        const thesis = match ? match[1] : input.replace(/^INITIATE ADVERSARIAL_LOOP\s*/i, '');
+        const ledger = await runAdversarialLoop(thesis);
+        return { type: 'ADVERSARIAL_LEDGER', data: ledger };
+    }
+
+    // 2. Detect Concept Audit
+    if (input.match(/^RUN CONCEPT_AUDIT/i) || input.match(/^AUDIT TERM/i)) {
+        const match = input.match(/term=["'](.*?)["']/);
+        const term = match ? match[1] : input.replace(/^RUN CONCEPT_AUDIT\s*/i, '');
+        const audit = await runConceptAudit(term);
+        return { type: 'CONCEPT_AUDIT', data: audit };
+    }
+
+    // 3. Detect Phi-QL
+    if (input.match(/^PHI-QL QUERY/i)) {
+        const typeMatch = input.match(/QUERY (WHY|TRACE|COUNTEREX|REPAIR)/i);
+        if (typeMatch) {
+            const type = typeMatch[1] as any;
+            const contentMatch = input.match(/\(["'](.*?)["']\)/);
+            const content = contentMatch ? contentMatch[1] : "";
+            const result = await runPhiQL(type, content);
+            return { type: 'PHI_QL_RESULT', data: result };
+        }
+    }
+
+    return null;
+}

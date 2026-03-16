@@ -1,0 +1,15 @@
+# Global ownership
+* @OWNER
+
+# Core application
+/app/ @OWNER
+/components/ @OWNER
+/lib/ @OWNER
+/services/ @OWNER
+/context/ @OWNER
+
+# Configuration and governance
+/.github/ @OWNER
+/docs/ @OWNER
+/package.json @OWNER
+/tsconfig.json @OWNER
