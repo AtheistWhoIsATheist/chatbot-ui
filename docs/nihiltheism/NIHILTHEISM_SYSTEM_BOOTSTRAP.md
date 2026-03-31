@@ -1,101 +1,215 @@
-# NIHILTHEISM System Bootstrap (Phases 1–5)
+# NIHILTHEISM System: Definitive Architecture, Data Model, Workflow Logic, and Operations Manual
 
-This document defines the full initialization contract for the **NIHILTHEISM System**.
+This specification is the canonical build-and-run contract for the NIHILTHEISM subsystem implemented in this repository. It defines conceptual intent, relational structure, automation semantics, operational controls, and failure-management logic for a persistent ingestion + deconstruction + synthesis environment.
 
-## 1) Intensive Iterative Densification Protocol (IIDP)
+---
 
-### Saturation laws (operationalized)
+## 0. System Purpose and Operating Scope
+
+The NIHILTHEISM subsystem exists to convert heterogeneous artifacts (documents, links, transcripts) into a recursively structured philosophical knowledge graph. It does this by combining:
+
+1. **Evidence preservation** (The Library).
+2. **Interpretive transformation** (Summaries).
+3. **Relational concept modeling** (Entities).
+4. **Aporia pressure generation** (Questions).
+5. **Persistent assistant behavior constraints** (Knowledge Curator).
+6. **Deterministic orchestration and accountability** (Workflows + Workflow Runs).
+
+### In-scope outcomes
+- Track original source structure before interpretation.
+- Produce deconstructive outputs with explicit scores and contradiction capture.
+- Anchor every concept to evidence paths (raw and/or synthesized).
+- Maintain weekly epistemic change logs.
+- Constrain agent behavior to system-contained knowledge.
+
+### Out-of-scope outcomes
+- General-purpose autonomous reasoning outside ingested corpus.
+- Guaranteed metaphysical “truth”; the subsystem produces structured interpretive artifacts.
+- Full scheduler provisioning (cron execution remains application/infra responsibility).
+
+---
+
+## 1. System Topology and Entity-Relationship Map
+
+### 1.1 Primary data domains
+- **Ingestion Domain**: `nihiltheism_library`
+- **Transformation Domain**: `nihiltheism_summaries`
+- **Concept Domain**: `nihiltheism_entities`, `nihiltheism_entity_links`, `nihiltheism_entity_evidence`
+- **Aporia Domain**: `nihiltheism_questions`
+- **Agent Domain**: `nihiltheism_agent_profiles`
+- **Orchestration Domain**: `nihiltheism_workflows`, `nihiltheism_workflow_runs`
+
+### 1.2 Core dependencies
+1. A Library artifact is the root input.
+2. Insert into Library triggers transmutation function.
+3. Transmutation function creates at least one Summary and one Evidence anchor.
+4. Evidence anchors connect Entities to Library/Summary records.
+5. Workflows represent executable contracts; Workflow Runs represent immutable execution history.
+6. Questions reference one or more Entities/Library/Summaries to prevent contextless abstraction.
+
+### 1.3 Integrity hierarchy
+- **Hard integrity (DB-enforced)**: keys, foreign keys, checks, uniqueness, RLS.
+- **Soft integrity (application-enforced)**: semantic quality thresholds, scheduler cadence, richer extraction quality.
+
+---
+
+## 2. Intensive Iterative Densification Protocol (IIDP)
+
+IIDP is a discipline for ensuring every artifact is represented across propositional, existential, relational, and dialectical layers.
+
+### 2.1 Six Laws of Saturation (operational definitions)
 1. **Ontological Exhaustion**
-   - Every ingested artifact must produce:
-     - at least 1 `nihiltheism_summaries` record,
-     - at least 1 entity evidence link,
-     - explicit existential vectors in `parsed_payload.existential_vectors`.
+   - Every artifact must map to explicit claims + at least one existential vector.
 2. **Relational Stasis**
-   - Entities are never free-floating: each canonical concept must be linked through `nihiltheism_entity_evidence` and optionally `nihiltheism_entity_links`.
+   - Concept nodes are valid only when linked through evidence and/or typed inter-entity relations.
 3. **Micro-Granular Subsumption**
-   - Every artifact stores source-level metadata and parsed propositions.
-   - Every summary stores contradiction arrays and saturation notes.
+   - Preserve local details (propositions, excerpts) while nesting into global graph structure.
 4. **Groundlessness Amplification**
-   - Summaries must carry a `groundlessness_index` [0–100].
+   - Synthesis must register uncertainty, contingency, and non-finality.
 5. **Dialectical Reversibility**
-   - Entities require both `definition` and `anti_definition`.
+   - Every concept requires anti-definition/counterpressure.
 6. **Transformative Potentiality**
-   - Summaries must carry `potentiality_index` [0–100], and weekly runs must emit recommended actions.
+   - System output must propose action paths rather than ending with static diagnosis.
 
-### IIDP scoring rubric
-- `0–39`: superficial extraction only
-- `40–69`: extracted claims, weak ontological tension mapping
-- `70–84`: stable deconstructive pass with explicit vectorization
-- `85–95`: relational closure across Library, Summaries, Entities, Questions
-- `96–100`: full contradiction tracing + recursive counterposition generation
+### 2.2 IIDP scoring band (used by curator and review workflows)
+- **0–39**: index-level extraction only, weak conceptual coupling.
+- **40–69**: identifiable claims + vectors, partial contradiction handling.
+- **70–84**: coherent deconstructive pass + evidence links.
+- **85–95**: closed relational loop among Library/Summaries/Entities/Questions.
+- **96–100**: iterative counterposition, residual ambiguity account, and strategic next-action specificity.
 
-## 2) Phase 1 — Ontological Intake Matrix
+### 2.3 Why IIDP matters operationally
+- Reduces hallucination risk by evidence anchoring.
+- Creates reproducible interpretation traces.
+- Converts “interesting ideas” into queryable graph material.
+- Supports weekly longitudinal epistemic diffing.
 
-### Supported artifact classes
-- Markdown (`.md`)
-- Plain text (`.txt`)
-- PDF (`.pdf`)
-- URL content (`url`)
-- Audio transcript (`audio_transcript`)
-- Video transcript (`video_transcript`)
+---
 
-### Intake transmutation sequence
-1. Insert source artifact into `nihiltheism_library` with normative metadata.
-2. Database trigger `nihiltheism_after_library_insert` invokes `nihiltheism_run_intake_transmutation()`.
-3. Function generates:
-   - sentence-level factual propositions (`nihiltheism_generate_propositions`),
-   - existential vectors (`nihiltheism_extract_existential_vectors`),
-   - first-pass summary in `nihiltheism_summaries`,
-   - entity and evidence linkage,
-   - workflow run record for auditability.
+## 3. Phase 1 — Ontological Intake Matrix (Ingestion Engine)
 
-## 3) Phase 2 — Four Pillars of Transcendence
+### 3.1 Accepted source modes
+- `md`, `txt`, `pdf`, `url`, `audio_transcript`, `video_transcript`
 
-### The Library
-Storage table: `nihiltheism_library`
+### 3.2 Ingestion contract (required inputs)
+At insert time, each artifact must include:
+- provenance: `source_type`, `source_uri`, `checksum_sha256`
+- normative framing: `normative_domain`, `normative_thesis`, `rhetorical_mode`, `epistemic_posture`
+- existential framing seed: `existential_vector`
+- body: `raw_text`
 
-Required fields include:
-- provenance (`source_type`, `source_uri`, `checksum_sha256`)
-- pre-deconstruction structure (`normative_domain`, `normative_thesis`, `rhetorical_mode`, `epistemic_posture`)
-- existential orientation (`existential_vector`)
-- raw content (`raw_text`)
-- parsed artifact payload (`parsed_payload`)
+### 3.3 Immediate post-insert behavior
+Trigger: `nihiltheism_after_library_insert`
 
-### Summaries
-Storage table: `nihiltheism_summaries`
+Function: `nihiltheism_run_intake_transmutation()`
 
-Required fields include:
-- deconstructive scores (`deconstruction_grade`, `groundlessness_index`, `potentiality_index`)
-- residue and synthesis (`normativity_residue`, `synthesis_text`)
-- contradiction map (`contradictions`)
-- IIDP notes (`saturation_notes`)
+Actions:
+1. Parse candidate propositions from text.
+2. Detect existential vectors with fallback to `groundlessness`.
+3. Create first synthesis record with deconstruction/groundlessness/potentiality scores.
+4. Upsert baseline concept entity (`Deconstructive Synthesis`).
+5. Create evidence record linking source + summary + entity.
+6. Update library status to `indexed` and persist parsed payload.
+7. Log workflow run when intake workflow exists.
 
-### Entities
-Storage tables:
-- `nihiltheism_entities`
-- `nihiltheism_entity_links`
-- `nihiltheism_entity_evidence`
+### 3.4 Failure boundaries and expected behavior
+- If workflow config absent, core transmutation still completes; run logging is skipped.
+- If text lacks vector keywords, fallback vector ensures non-empty existential mapping.
+- If upsert target concept exists, definition/signature refresh preserves continuity.
 
-Entity graph includes:
-- typed ontological nodes (`entity_type`, `ontological_tier`)
-- dual-aspect semantics (`definition`, `anti_definition`)
-- dynamic ties to source material through evidence records
+---
 
-### Questions
-Storage table: `nihiltheism_questions`
+## 4. Phase 2 — Four Pillars of Transcendence (Schema Deep Dive)
 
-Aporia records include:
-- high-pressure prompt (`question_text`)
-- philosophical axis (`pressure_axis`)
-- response mode (`response_mode`)
-- severity + unresolved status
-- explicit relation arrays to entities/library/summaries
+## 4A. The Library (`nihiltheism_library`)
 
-## 4) Phase 3 — Knowledge Curator Agent
+### Purpose
+Stable source-of-truth vault preserving raw inputs plus pre-deconstruction metadata.
 
-Storage table: `nihiltheism_agent_profiles`
+### Key fields and rationale
+- `checksum_sha256` + unique `(user_id, checksum_sha256)`:
+  - deduplicates semantically identical artifacts per user.
+- `normative_*` fields:
+  - capture inherited ideology/structure before transformation.
+- `ingestion_status` (`pending|parsed|indexed|failed`):
+  - supports queue visibility and repair operations.
+- `parsed_payload`:
+  - stores machine-extracted proposition/vector output for traceability.
 
-### Canonical agent prompt (full text)
+### Risk/caveat
+- sha256 uniqueness is user-scoped; cross-user duplication is intentionally allowed.
+
+## 4B. Summaries (`nihiltheism_summaries`)
+
+### Purpose
+Host transformed interpretations and structured deconstructive analytics.
+
+### Key semantics
+- `synthesis_version` enables iterative refinement history.
+- score triplet:
+  - `deconstruction_grade`: depth of normativity stripping.
+  - `groundlessness_index`: explicit existential destabilization.
+  - `potentiality_index`: constructive action horizon after deconstruction.
+- `normativity_residue` prevents false claims of complete abstraction stripping.
+- `contradictions` captures unresolved tensions as machine-queryable JSON.
+- uniqueness `(library_id, synthesis_version)` prevents version collision.
+
+### Expert caveat
+A high `groundlessness_index` without coherent contradictions mapping can indicate performative rather than analytical deconstruction.
+
+## 4C. Entities + Links + Evidence
+
+### `nihiltheism_entities`
+Represents canonical concept nodes.
+
+- `entity_type` taxonomy: concept/historical_node/archetype/method/question_form/symbol.
+- `definition` and `anti_definition`: mandatory dialectical pair.
+- `saturation_score`: graph-level maturity metric (not truth metric).
+
+### `nihiltheism_entity_links`
+Represents typed concept-to-concept edges.
+
+- `relation_type` constrains semantic link vocabulary.
+- uniqueness `(from_entity_id, to_entity_id, relation_type)` prevents duplicate edges.
+- `relation_strength` [0,1] provides confidence-weighted structure.
+- self-links prohibited by check constraint.
+
+### `nihiltheism_entity_evidence`
+Anchors conceptual claims to source material.
+
+- Requires at least one of `library_id` or `summary_id`.
+- Captures excerpt + confidence for provenance-grade trace.
+
+### Structural tension to manage
+Dense concept linking without evidence expansion creates graph inflation; enforce evidence growth alongside link growth.
+
+## 4D. Questions (`nihiltheism_questions`)
+
+### Purpose
+Store unresolved, high-pressure interrogatives that drive further synthesis.
+
+### Typing controls
+- `pressure_axis`: existential dimension classification.
+- `response_mode`: method expectation for future analysis.
+- `severity` quantifies urgency/intensity.
+- relation arrays connect questions to concept/content context.
+
+### Operational guidance
+Do not close (`unresolved=false`) unless downstream summaries or evidence materially reduce ambiguity.
+
+---
+
+## 5. Phase 3 — Sovereign Curator (Knowledge Curator Agent)
+
+Storage: `nihiltheism_agent_profiles`
+
+### 5.1 Hard constraints
+- `agent_name` must be `Knowledge Curator`.
+- `training_scope` fixed to `library_plus_entities_only`.
+
+These constraints formalize bounded-context behavior and prevent silent scope drift.
+
+### 5.2 Canonical prompt (authoritative)
 
 ```text
 You are Knowledge Curator, a persistent philosophical companion operating inside the NIHILTHEISM system.
@@ -123,18 +237,39 @@ Stop condition:
 - Continue iterative densification until either user interrupts or you can justify a saturation score >= 96.
 ```
 
-## 5) Phase 4 — Rituals of Deconstruction (Automated Workflows)
+### 5.3 Agent failure modes
+- Over-generalization not grounded in citations/evidence links.
+- False saturation claims (high score with low relational closure).
+- External-knowledge leakage violating scope constraints.
 
-Storage tables:
-- `nihiltheism_workflows`
-- `nihiltheism_workflow_runs`
+### 5.4 Mitigation controls
+- Require sectioned output contract.
+- Enforce minimum evidence references for high saturation outputs.
+- Periodically re-evaluate low-saturation entities in weekly synthesis.
 
-### Workflow A: The Intake Transmutation
-- Trigger type: `new_artifact`
-- Trigger payload: `{ "library_id": "<uuid>" }`
-- Action implementation: SQL trigger + function `nihiltheism_run_intake_transmutation()`
+---
 
-#### Prompt protocol text (store in `action_prompt`)
+## 6. Phase 4 — Rituals of Deconstruction (Workflow Contracts)
+
+Storage:
+- `nihiltheism_workflows` (declarative contract)
+- `nihiltheism_workflow_runs` (runtime ledger)
+
+## 6A. Workflow A: The Intake Transmutation
+
+### Trigger
+`new_artifact` (implemented via DB trigger on Library insert)
+
+### Mandatory outcomes
+- proposition extraction
+- existential vector extraction
+- summary generation
+- entity/evidence linkage
+- six-law tag emission
+- run logging
+
+### Prompt protocol text (canonical)
+
 ```text
 WORKFLOW: The Intake Transmutation
 INPUT: New source artifact from The Library.
@@ -147,12 +282,26 @@ MANDATORY ACTIONS:
 6) Log workflow run status and produced identifiers.
 ```
 
-### Workflow B: The Temporal Synthesis
-- Trigger type: `schedule_weekly`
-- Cron recommendation: `0 6 * * 1` (every Monday 06:00 UTC)
-- Action implementation: function `nihiltheism_run_weekly_temporal_synthesis(user_id uuid)`
+### Reliability notes
+- DB-trigger execution guarantees immediate processing at insert boundary.
+- For large artifacts, consider asynchronous extension in app layer while preserving DB audit trail.
 
-#### Prompt protocol text (store in `action_prompt`)
+## 6B. Workflow B: The Temporal Synthesis
+
+### Trigger
+`schedule_weekly` (recommended cron: `0 6 * * 1` UTC)
+
+### Function
+`nihiltheism_run_weekly_temporal_synthesis(p_user_id UUID)`
+
+### Mandatory outcomes
+- weekly system-state scan across Library/Summaries/Questions
+- “What Changed” digest payload
+- “Recommended Next Actions” payload
+- workflow run logging
+
+### Prompt protocol text (canonical)
+
 ```text
 WORKFLOW: The Temporal Synthesis
 INPUT: Full seven-day system state (Library, Summaries, Questions, Curator interactions).
@@ -164,34 +313,143 @@ MANDATORY ACTIONS:
 5) Log run payload with digest and recommended actions.
 ```
 
-## 6) Phase 5 — Transcendent Interface Layout
+### Strategic significance
+Temporal synthesis converts isolated outputs into longitudinal epistemic governance.
 
-### Dashboard zones
-1. **Library Browser**
-   - Left column, persistent filters by `source_type`, `normative_domain`, and `ingestion_status`.
-   - Center pane for raw text + parsed vectors.
-2. **Summary Feed**
-   - Infinite vertical stream sorted by `created_at DESC` with pinned weekly digest cards.
-   - Show `deconstruction_grade`, `groundlessness_index`, `potentiality_index` badges.
-3. **Agent Chat**
-   - Right pinned panel with single-click insert of selected Library/Summary/Entity context.
-   - Persistent display of Curator saturation score for current thread.
+---
 
-## 7) Absolute initialization sequence
+## 7. Phase 5 — Transcendent Interface Blueprint (Implementation-Ready)
 
-1. Apply migration:
-   - `supabase/migrations/20260326100000_add_nihiltheism_system.sql`
-2. Seed the Knowledge Curator profile for each user.
-3. Seed two workflows per user with the exact prompt protocols above.
-4. Configure weekly execution (application scheduler or pg_cron wrapper) to call `nihiltheism_run_weekly_temporal_synthesis(auth.uid())` in user scope.
-5. Route ingestion UI submits into `nihiltheism_library` with precomputed SHA-256 and normative metadata.
-6. Render the three dashboard zones against the four pillar tables.
+### 7.1 Library Browser
+- Left rail filters: `source_type`, `normative_domain`, `ingestion_status`, date range.
+- Center detail pane:
+  - raw text,
+  - parsed propositions,
+  - existential vectors,
+  - linked summaries/entities/questions.
+- Utility actions:
+  - re-run transmutation,
+  - mark failed artifacts for repair,
+  - open source URI.
 
-## 8) Integrity checks (post-init)
+### 7.2 Summary Feed
+- Infinite chronological stream (`created_at DESC`).
+- Card metadata:
+  - score triplet,
+  - contradiction count,
+  - residue excerpt,
+  - linked entities.
+- Pinned weekly cards for “What Changed” digests.
 
-Run after every deployment:
-- Ensure no library artifact remains `pending` after 60 seconds.
-- Ensure each artifact has at least one summary.
-- Ensure each summary has IIDP six-law tags in `saturation_notes.six_laws_tags`.
-- Ensure each unresolved question has at least one linked entity OR library OR summary ID.
-- Ensure weekly digest run exists every 7-day window.
+### 7.3 Agent Chat
+- Persistent side panel with selected-context injection.
+- Conversation view should always show:
+  - active IIDP saturation score,
+  - referenced entities,
+  - unresolved questions generated.
+- One-click “convert response to question/entity” actions to keep graph growth low-friction.
+
+### 7.4 UX anti-patterns to avoid
+- infinite “philosophical prose” without explicit references.
+- scores displayed without explanation.
+- unresolved questions decoupled from source evidence.
+
+---
+
+## 8. Initialization Runbook (Absolute Sequence)
+
+1. Apply migration: `supabase/migrations/20260326100000_add_nihiltheism_system.sql`.
+2. Insert `Knowledge Curator` profile per user with canonical prompt fields.
+3. Seed two workflow records per user:
+   - `The Intake Transmutation`
+   - `The Temporal Synthesis`
+4. Provision scheduler job (app worker or pg_cron wrapper) invoking weekly synthesis per user.
+5. Ensure ingestion UI posts complete metadata + SHA-256.
+6. Validate trigger-based transmutation with a known test artifact.
+7. Confirm workflow run records are generated and queryable.
+8. Enable dashboard components against the new tables.
+
+---
+
+## 9. Observability, QA, and Guardrails
+
+### 9.1 Minimum health checks (every deploy)
+- No artifacts stuck at `pending` > 60s.
+- Every library row has at least one summary.
+- Every summary has six-law tags in `saturation_notes.six_laws_tags`.
+- Every unresolved question links to at least one contextual ID set.
+- Weekly digest run exists within each rolling 7-day window.
+
+### 9.2 Recommended telemetry
+- ingestion throughput/day
+- transmutation success/failure ratio
+- average time artifact→indexed
+- evidence density (evidence rows / entity rows)
+- unresolved question backlog and median severity
+- low-saturation entity count (<70)
+
+### 9.3 Incident triage playbook
+1. **Missing summaries**: inspect trigger health + failed transactions.
+2. **Vector sparsity**: refine extraction heuristics/app-side enrichment.
+3. **Graph inflation**: enforce link-to-evidence ratio threshold.
+4. **Weekly run gaps**: inspect scheduler and permission scope.
+
+---
+
+## 10. Security and Multi-Tenant Controls
+
+### 10.1 Row-level security model
+All NIHILTHEISM tables are RLS-enabled with own-row policies keyed by `auth.uid()`.
+
+### 10.2 Security implications
+- Prevents cross-user data leakage.
+- Requires all worker/service execution paths to honor user context.
+
+### 10.3 Operational caution
+Service-role backfills must explicitly scope writes by user; avoid global batch scripts without ownership filtering.
+
+---
+
+## 11. Edge Cases, Constraints, and Expert Caveats
+
+1. **Keyword-based vector extraction is conservative**
+   - Good baseline, not final semantic detector.
+   - Improve with model-assisted extraction in app layer while retaining DB audit events.
+
+2. **Single default concept insertion during intake**
+   - Prevents orphaned artifacts early.
+   - Should be expanded by orchestrator for richer concept emergence.
+
+3. **Array-based related IDs in Questions**
+   - Fast to bootstrap, but denormalized.
+   - For high-scale analytics, add junction tables.
+
+4. **Digest quality depends on interaction capture**
+   - If chat interactions are not stored in weekly input set, “What Changed” is underpowered.
+
+5. **Score metrics are governance aids, not ontological proof**
+   - Treat as progress indicators within system logic.
+
+---
+
+## 12. Forward Extensions (Recommended Roadmap)
+
+1. Add junction tables for question relations (`question_entities`, `question_library`, `question_summaries`).
+2. Add materialized views for dashboard speed (`entity_density`, `weekly_drift`).
+3. Add retry queue for failed ingestion statuses.
+4. Add semantic chunk embeddings for retrieval precision in curator chat.
+5. Add contradiction taxonomy for better longitudinal comparison.
+6. Add policy for mandatory evidence count before `saturation_score > 90`.
+
+---
+
+## 13. Quick Reference: Canonical Constants and Files
+
+- **Migration (schema + automation):**
+  `supabase/migrations/20260326100000_add_nihiltheism_system.sql`
+- **Prompt/config constants:**
+  `services/nihiltheism/config.ts`
+- **This operational spec:**
+  `docs/nihiltheism/NIHILTHEISM_SYSTEM_BOOTSTRAP.md`
+
+This document is normative for architecture intent and operating practices; SQL constraints remain the final enforcement layer.
