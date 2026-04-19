@@ -1,24 +1,30 @@
 import { GraphData, Link, Node, ValidationIssue, ValidationReport } from '../types';
 import { REIFICATION_TRIGGERS } from '../constants';
 
+const extractNodeContent = (node: Node): string =>
+  `${node.label} ${node.description || ''}`.toLowerCase();
+
+const getLinkNodeId = (endpoint: Link['source'] | Link['target']): string =>
+  typeof endpoint === 'string' ? endpoint : endpoint.id;
+
 /**
  * OMEGA-PURITY-6: ONTOLOGICAL AUDIT
  * Detects reification of the Void (Idolatry Check).
  */
 export const auditOntology = (node: Node): ValidationIssue | null => {
-    // 1. Check for 'Void' presence
-    const content = (node.label + " " + (node.description || "")).toLowerCase();
+  // 1. Check for 'Void' presence
+    const content = extractNodeContent(node);
     if (!content.includes('void') && !content.includes('nothingness') && !content.includes('emptiness')) {
         return null;
     }
 
     // 2. Check for Reification Triggers
-    const triggerFound = REIFICATION_TRIGGERS.some(trigger => content.includes(trigger.toLowerCase()));
+    const triggerFound = REIFICATION_TRIGGERS.find(trigger => content.includes(trigger.toLowerCase()));
     
     if (triggerFound) {
         return {
             code: 'ONTOLOGICAL_IDOLATRY',
-            message: `Node '${node.label}' detects reification. The Void is not an object that '${triggerFound}'. Use phenomenological language (SAFE_VERBS).`,
+            message: `Node '${node.label}' detects reification via phrase '${triggerFound}'. The Void is not an object; use phenomenological language (SAFE_VERBS).`,
             severity: 'error',
             nodeId: node.id
         };
@@ -33,6 +39,7 @@ export const auditOntology = (node: Node): ValidationIssue | null => {
  */
 export const runLogicValidation = (data: GraphData): ValidationReport => {
   const issues: ValidationIssue[] = [];
+  const contradictionPairs = new Set<string>();
   let validParadoxes = 0;
   let totalParadoxes = 0;
   let totalClaims = 0;
@@ -54,12 +61,14 @@ export const runLogicValidation = (data: GraphData): ValidationReport => {
   });
 
   data.links.forEach(l => {
-    const srcId = typeof l.source === 'string' ? l.source : (l.source as Node).id;
-    const tgtId = typeof l.target === 'string' ? l.target : (l.target as Node).id;
+    const srcId = getLinkNodeId(l.source);
+    const tgtId = getLinkNodeId(l.target);
     
     if (outgoingLinks[srcId]) outgoingLinks[srcId].push(l);
     if (incomingLinks[tgtId]) incomingLinks[tgtId].push(l);
   });
+
+  const nodeById = new Map(data.nodes.map(node => [node.id, node]));
 
   // CHECK 0: OMEGA-PURITY-6 (Ontological Audit & Anti-Reification)
   data.nodes.forEach(n => {
@@ -163,10 +172,14 @@ export const runLogicValidation = (data: GraphData): ValidationReport => {
      // Check for contradiction relationships
      const contradictionTerms = ['contradicts', 'negates', 'opposes', 'conflicts_with'];
      if (contradictionTerms.includes(l.relationship) || l.category === 'PARADOX') {
-         const sourceNode = data.nodes.find(n => n.id === (typeof l.source === 'string' ? l.source : (l.source as Node).id));
-         const targetNode = data.nodes.find(n => n.id === (typeof l.target === 'string' ? l.target : (l.target as Node).id));
+         const sourceNode = nodeById.get(getLinkNodeId(l.source));
+         const targetNode = nodeById.get(getLinkNodeId(l.target));
 
          if (sourceNode?.type === 'CLAIM' && targetNode?.type === 'CLAIM') {
+             const pairKey = [sourceNode.id, targetNode.id].sort().join('::');
+             if (contradictionPairs.has(pairKey)) return;
+             contradictionPairs.add(pairKey);
+
              // Direct conflict between claims detected.
              // This violates the topological rule that contradictions must be mediated by an APORIA node.
              issues.push({

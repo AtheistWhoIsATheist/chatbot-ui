@@ -2,14 +2,35 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { AdversarialLedger, ConceptAudit, PhiQLResult, Artifact } from '../types';
 import { SYSTEM_INSTRUCTION, MODEL_CHAT_DEEP } from '../constants';
 
-const apiKey = process.env.API_KEY || '';
 let ai: GoogleGenAI | null = null;
 
-const getAI = () => {
+const getApiKey = (): string => {
+    const apiKey = process.env.API_KEY?.trim();
+    if (!apiKey) {
+        throw new Error('Missing API_KEY. Set API_KEY in your environment before running workflow commands.');
+    }
+    return apiKey;
+};
+
+const getAI = (): GoogleGenAI => {
     if (!ai) {
-        ai = new GoogleGenAI({ apiKey });
+        ai = new GoogleGenAI({ apiKey: getApiKey() });
     }
     return ai;
+};
+
+const cleanModelJson = (text: string): string =>
+    text
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+const parseModelJson = <T>(text: string, context: string): T => {
+    try {
+        return JSON.parse(cleanModelJson(text)) as T;
+    } catch (error) {
+        throw new Error(`Unable to parse ${context} response as JSON: ${(error as Error).message}`);
+    }
 };
 
 /**
@@ -61,8 +82,7 @@ export async function runAdversarialLoop(thesis: string): Promise<AdversarialLed
         }
     });
 
-    const text = response.text || '{}';
-    return JSON.parse(text) as AdversarialLedger;
+    return parseModelJson<AdversarialLedger>(response.text || '{}', 'adversarial loop');
 }
 
 /**
@@ -101,7 +121,7 @@ export async function runConceptAudit(term: string): Promise<ConceptAudit> {
         }
     });
 
-    return JSON.parse(response.text || '{}') as ConceptAudit;
+    return parseModelJson<ConceptAudit>(response.text || '{}', 'concept audit');
 }
 
 /**
@@ -144,36 +164,51 @@ export async function runPhiQL(queryType: 'WHY' | 'TRACE' | 'COUNTEREX' | 'REPAI
         }
     });
 
-    return JSON.parse(response.text || '{}') as PhiQLResult;
+    return parseModelJson<PhiQLResult>(response.text || '{}', 'PHI-QL');
 }
 
 /**
  * Main Entry Point for Command Processing
  */
 export async function processCommand(input: string): Promise<Artifact | null> {
+    const normalizedInput = input.trim();
+    if (!normalizedInput) return null;
+
+    const normalizeExtract = (value: string): string =>
+        value.trim().replace(/^["']|["']$/g, '').trim();
+
     // 1. Detect Adversarial Loop
-    if (input.match(/^INITIATE ADVERSARIAL_LOOP/i)) {
-        const match = input.match(/thesis=["'](.*?)["']/);
-        const thesis = match ? match[1] : input.replace(/^INITIATE ADVERSARIAL_LOOP\s*/i, '');
+    if (normalizedInput.match(/^INITIATE ADVERSARIAL_LOOP/i)) {
+        const thesisMatch = normalizedInput.match(/thesis\s*[:=]\s*["'](.+?)["']/i);
+        const fallback = normalizedInput.replace(/^INITIATE ADVERSARIAL_LOOP\b[:\s-]*/i, '');
+        const thesis = thesisMatch ? thesisMatch[1] : normalizeExtract(fallback);
+        if (!thesis) return null;
         const ledger = await runAdversarialLoop(thesis);
         return { type: 'ADVERSARIAL_LEDGER', data: ledger };
     }
 
     // 2. Detect Concept Audit
-    if (input.match(/^RUN CONCEPT_AUDIT/i) || input.match(/^AUDIT TERM/i)) {
-        const match = input.match(/term=["'](.*?)["']/);
-        const term = match ? match[1] : input.replace(/^RUN CONCEPT_AUDIT\s*/i, '');
+    if (normalizedInput.match(/^RUN CONCEPT_AUDIT/i) || normalizedInput.match(/^AUDIT TERM/i)) {
+        const termMatch = normalizedInput.match(/term\s*[:=]\s*["'](.+?)["']/i);
+        const fallback = normalizedInput
+            .replace(/^RUN CONCEPT_AUDIT\b[:\s-]*/i, '')
+            .replace(/^AUDIT TERM\b[:\s-]*/i, '');
+        const term = termMatch ? termMatch[1] : normalizeExtract(fallback);
+        if (!term) return null;
         const audit = await runConceptAudit(term);
         return { type: 'CONCEPT_AUDIT', data: audit };
     }
 
     // 3. Detect Phi-QL
-    if (input.match(/^PHI-QL QUERY/i)) {
-        const typeMatch = input.match(/QUERY (WHY|TRACE|COUNTEREX|REPAIR)/i);
+    if (normalizedInput.match(/^PHI-QL(?:\s+QUERY)?/i)) {
+        const typeMatch = normalizedInput.match(/\b(WHY|TRACE|COUNTEREX|REPAIR)\b/i);
         if (typeMatch) {
-            const type = typeMatch[1] as any;
-            const contentMatch = input.match(/\(["'](.*?)["']\)/);
-            const content = contentMatch ? contentMatch[1] : "";
+            const type = typeMatch[1].toUpperCase() as PhiQLResult['type'];
+            const contentMatch =
+                normalizedInput.match(/\(["'](.+?)["']\)/) ||
+                normalizedInput.match(/[:=]\s*["']?(.+?)["']?$/);
+            const content = normalizeExtract(contentMatch?.[1] || '');
+            if (!content) return null;
             const result = await runPhiQL(type, content);
             return { type: 'PHI_QL_RESULT', data: result };
         }
