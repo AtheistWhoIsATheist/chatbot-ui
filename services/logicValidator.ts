@@ -13,12 +13,12 @@ export const auditOntology = (node: Node): ValidationIssue | null => {
     }
 
     // 2. Check for Reification Triggers
-    const triggerFound = REIFICATION_TRIGGERS.some(trigger => content.includes(trigger.toLowerCase()));
+    const triggerFound = REIFICATION_TRIGGERS.find(trigger => content.includes(trigger.toLowerCase()));
     
     if (triggerFound) {
         return {
             code: 'ONTOLOGICAL_IDOLATRY',
-            message: `Node '${node.label}' detects reification. The Void is not an object that '${triggerFound}'. Use phenomenological language (SAFE_VERBS).`,
+            message: `Node '${node.label}' detects reification. Trigger phrase: '${triggerFound}'. The Void should be framed phenomenologically (SAFE_VERBS).`,
             severity: 'error',
             nodeId: node.id
         };
