@@ -4,18 +4,31 @@ import { SYSTEM_INSTRUCTION, MODEL_CHAT_DEEP } from '../constants';
 
 let ai: GoogleGenAI | null = null;
 
+ codex/finalize-and-enhance-entire-codebase-3aea24
 const getAI = () => {
     const apiKey = process.env.API_KEY || '';
     if (!apiKey) {
         throw new Error('API_KEY is required to execute workflow commands.');
     }
 
+
+const getApiKey = (): string => {
+    const apiKey = process.env.API_KEY?.trim();
+    if (!apiKey) {
+        throw new Error('Missing API_KEY. Set API_KEY in your environment before running workflow commands.');
+    }
+    return apiKey;
+};
+
+const getAI = (): GoogleGenAI => {
+ main
     if (!ai) {
-        ai = new GoogleGenAI({ apiKey });
+        ai = new GoogleGenAI({ apiKey: getApiKey() });
     }
     return ai;
 };
 
+codex/finalize-and-enhance-entire-codebase-3aea24
 const parseStructuredResponse = <T>(text: string | undefined, context: string): T => {
     if (!text || !text.trim()) {
         throw new Error(`Empty JSON response received for ${context}.`);
@@ -71,6 +84,22 @@ export const parseWorkflowCommand = (input: string): ParsedWorkflowCommand | nul
     return null;
 };
 
+=======
+const cleanModelJson = (text: string): string =>
+    text
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+const parseModelJson = <T>(text: string, context: string): T => {
+    try {
+        return JSON.parse(cleanModelJson(text)) as T;
+    } catch (error) {
+        throw new Error(`Unable to parse ${context} response as JSON: ${(error as Error).message}`);
+    }
+};
+
+main
 /**
  * METHOD: ADVERSARIAL LOOP (8.3)
  * Steelman -> Red-Team -> Formalize -> Countermodel -> Repair
@@ -120,7 +149,11 @@ export async function runAdversarialLoop(thesis: string): Promise<AdversarialLed
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
     return parseStructuredResponse<AdversarialLedger>(response.text, 'adversarial loop');
+=======
+    return parseModelJson<AdversarialLedger>(response.text || '{}', 'adversarial loop');
+main
 }
 
 /**
@@ -159,7 +192,11 @@ export async function runConceptAudit(term: string): Promise<ConceptAudit> {
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
     return parseStructuredResponse<ConceptAudit>(response.text, 'concept audit');
+=======
+    return parseModelJson<ConceptAudit>(response.text || '{}', 'concept audit');
+main
 }
 
 /**
@@ -202,13 +239,18 @@ export async function runPhiQL(queryType: 'WHY' | 'TRACE' | 'COUNTEREX' | 'REPAI
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
     return parseStructuredResponse<PhiQLResult>(response.text, 'PHI-QL');
+=======
+    return parseModelJson<PhiQLResult>(response.text || '{}', 'PHI-QL');
+main
 }
 
 /**
  * Main Entry Point for Command Processing
  */
 export async function processCommand(input: string): Promise<Artifact | null> {
+codex/finalize-and-enhance-entire-codebase-3aea24
     const parsedCommand = parseWorkflowCommand(input);
     if (!parsedCommand) return null;
 
@@ -225,6 +267,49 @@ export async function processCommand(input: string): Promise<Artifact | null> {
     if (parsedCommand.command === 'PHI_QL') {
         const result = await runPhiQL(parsedCommand.queryType, parsedCommand.input);
         return { type: 'PHI_QL_RESULT', data: result };
+=======
+    const normalizedInput = input.trim();
+    if (!normalizedInput) return null;
+
+    const normalizeExtract = (value: string): string =>
+        value.trim().replace(/^["']|["']$/g, '').trim();
+
+    // 1. Detect Adversarial Loop
+    if (normalizedInput.match(/^INITIATE ADVERSARIAL_LOOP/i)) {
+        const thesisMatch = normalizedInput.match(/thesis\s*[:=]\s*["'](.+?)["']/i);
+        const fallback = normalizedInput.replace(/^INITIATE ADVERSARIAL_LOOP\b[:\s-]*/i, '');
+        const thesis = thesisMatch ? thesisMatch[1] : normalizeExtract(fallback);
+        if (!thesis) return null;
+        const ledger = await runAdversarialLoop(thesis);
+        return { type: 'ADVERSARIAL_LEDGER', data: ledger };
+    }
+
+    // 2. Detect Concept Audit
+    if (normalizedInput.match(/^RUN CONCEPT_AUDIT/i) || normalizedInput.match(/^AUDIT TERM/i)) {
+        const termMatch = normalizedInput.match(/term\s*[:=]\s*["'](.+?)["']/i);
+        const fallback = normalizedInput
+            .replace(/^RUN CONCEPT_AUDIT\b[:\s-]*/i, '')
+            .replace(/^AUDIT TERM\b[:\s-]*/i, '');
+        const term = termMatch ? termMatch[1] : normalizeExtract(fallback);
+        if (!term) return null;
+        const audit = await runConceptAudit(term);
+        return { type: 'CONCEPT_AUDIT', data: audit };
+    }
+
+    // 3. Detect Phi-QL
+    if (normalizedInput.match(/^PHI-QL(?:\s+QUERY)?/i)) {
+        const typeMatch = normalizedInput.match(/\b(WHY|TRACE|COUNTEREX|REPAIR)\b/i);
+        if (typeMatch) {
+            const type = typeMatch[1].toUpperCase() as PhiQLResult['type'];
+            const contentMatch =
+                normalizedInput.match(/\(["'](.+?)["']\)/) ||
+                normalizedInput.match(/[:=]\s*["']?(.+?)["']?$/);
+            const content = normalizeExtract(contentMatch?.[1] || '');
+            if (!content) return null;
+            const result = await runPhiQL(type, content);
+            return { type: 'PHI_QL_RESULT', data: result };
+        }
+main
     }
 
     return null;
