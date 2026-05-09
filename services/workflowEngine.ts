@@ -4,6 +4,14 @@ import { SYSTEM_INSTRUCTION, MODEL_CHAT_DEEP } from '../constants';
 
 let ai: GoogleGenAI | null = null;
 
+ codex/finalize-and-enhance-entire-codebase-3aea24
+const getAI = () => {
+    const apiKey = process.env.API_KEY || '';
+    if (!apiKey) {
+        throw new Error('API_KEY is required to execute workflow commands.');
+    }
+
+
 const getApiKey = (): string => {
     const apiKey = process.env.API_KEY?.trim();
     if (!apiKey) {
@@ -13,12 +21,70 @@ const getApiKey = (): string => {
 };
 
 const getAI = (): GoogleGenAI => {
+ main
     if (!ai) {
         ai = new GoogleGenAI({ apiKey: getApiKey() });
     }
     return ai;
 };
 
+codex/finalize-and-enhance-entire-codebase-3aea24
+const parseStructuredResponse = <T>(text: string | undefined, context: string): T => {
+    if (!text || !text.trim()) {
+        throw new Error(`Empty JSON response received for ${context}.`);
+    }
+
+    try {
+        return JSON.parse(text) as T;
+    } catch (error) {
+        throw new Error(
+            `Failed to parse ${context} response as JSON: ${
+                error instanceof Error ? error.message : 'Unknown parse error'
+            }`
+        );
+    }
+};
+
+type ParsedWorkflowCommand =
+    | { command: 'ADVERSARIAL_LOOP'; thesis: string }
+    | { command: 'CONCEPT_AUDIT'; term: string }
+    | { command: 'PHI_QL'; queryType: 'WHY' | 'TRACE' | 'COUNTEREX' | 'REPAIR'; input: string };
+
+export const parseWorkflowCommand = (input: string): ParsedWorkflowCommand | null => {
+    const trimmedInput = input.trim();
+
+    if (trimmedInput.match(/^INITIATE ADVERSARIAL_LOOP/i)) {
+        const match = trimmedInput.match(/thesis=["'](.*?)["']/i);
+        const thesis = match ? match[1] : trimmedInput.replace(/^INITIATE ADVERSARIAL_LOOP\s*/i, '').trim();
+        return { command: 'ADVERSARIAL_LOOP', thesis };
+    }
+
+    if (trimmedInput.match(/^RUN CONCEPT_AUDIT/i) || trimmedInput.match(/^AUDIT TERM/i)) {
+        const match = trimmedInput.match(/term=["'](.*?)["']/i);
+        const term = match
+            ? match[1]
+            : trimmedInput
+                  .replace(/^RUN CONCEPT_AUDIT\s*/i, '')
+                  .replace(/^AUDIT TERM\s*/i, '')
+                  .trim();
+        return { command: 'CONCEPT_AUDIT', term };
+    }
+
+    if (trimmedInput.match(/^PHI-QL/i)) {
+        const typeMatch = trimmedInput.match(/(?:QUERY\s+)?(WHY|TRACE|COUNTEREX|REPAIR)/i);
+        if (!typeMatch) return null;
+
+        const queryType = typeMatch[1].toUpperCase() as ParsedWorkflowCommand['queryType'];
+        const contentMatch = trimmedInput.match(/\(["'](.*?)["']\)|["'](.*?)["']/);
+        const phiInput = (contentMatch?.[1] || contentMatch?.[2] || '').trim();
+
+        return { command: 'PHI_QL', queryType, input: phiInput };
+    }
+
+    return null;
+};
+
+=======
 const cleanModelJson = (text: string): string =>
     text
         .replace(/```json/gi, '')
@@ -33,6 +99,7 @@ const parseModelJson = <T>(text: string, context: string): T => {
     }
 };
 
+main
 /**
  * METHOD: ADVERSARIAL LOOP (8.3)
  * Steelman -> Red-Team -> Formalize -> Countermodel -> Repair
@@ -82,7 +149,11 @@ export async function runAdversarialLoop(thesis: string): Promise<AdversarialLed
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
+    return parseStructuredResponse<AdversarialLedger>(response.text, 'adversarial loop');
+=======
     return parseModelJson<AdversarialLedger>(response.text || '{}', 'adversarial loop');
+main
 }
 
 /**
@@ -121,7 +192,11 @@ export async function runConceptAudit(term: string): Promise<ConceptAudit> {
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
+    return parseStructuredResponse<ConceptAudit>(response.text, 'concept audit');
+=======
     return parseModelJson<ConceptAudit>(response.text || '{}', 'concept audit');
+main
 }
 
 /**
@@ -164,13 +239,35 @@ export async function runPhiQL(queryType: 'WHY' | 'TRACE' | 'COUNTEREX' | 'REPAI
         }
     });
 
+codex/finalize-and-enhance-entire-codebase-3aea24
+    return parseStructuredResponse<PhiQLResult>(response.text, 'PHI-QL');
+=======
     return parseModelJson<PhiQLResult>(response.text || '{}', 'PHI-QL');
+main
 }
 
 /**
  * Main Entry Point for Command Processing
  */
 export async function processCommand(input: string): Promise<Artifact | null> {
+codex/finalize-and-enhance-entire-codebase-3aea24
+    const parsedCommand = parseWorkflowCommand(input);
+    if (!parsedCommand) return null;
+
+    if (parsedCommand.command === 'ADVERSARIAL_LOOP') {
+        const ledger = await runAdversarialLoop(parsedCommand.thesis);
+        return { type: 'ADVERSARIAL_LEDGER', data: ledger };
+    }
+
+    if (parsedCommand.command === 'CONCEPT_AUDIT') {
+        const audit = await runConceptAudit(parsedCommand.term);
+        return { type: 'CONCEPT_AUDIT', data: audit };
+    }
+
+    if (parsedCommand.command === 'PHI_QL') {
+        const result = await runPhiQL(parsedCommand.queryType, parsedCommand.input);
+        return { type: 'PHI_QL_RESULT', data: result };
+=======
     const normalizedInput = input.trim();
     if (!normalizedInput) return null;
 
@@ -212,6 +309,7 @@ export async function processCommand(input: string): Promise<Artifact | null> {
             const result = await runPhiQL(type, content);
             return { type: 'PHI_QL_RESULT', data: result };
         }
+main
     }
 
     return null;

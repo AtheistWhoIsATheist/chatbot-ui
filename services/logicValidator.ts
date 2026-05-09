@@ -24,7 +24,11 @@ export const auditOntology = (node: Node): ValidationIssue | null => {
     if (triggerFound) {
         return {
             code: 'ONTOLOGICAL_IDOLATRY',
+  codex/finalize-and-enhance-entire-codebase-3aea24
+            message: `Node '${node.label}' detects reification. Trigger phrase: '${triggerFound}'. The Void should be framed phenomenologically (SAFE_VERBS).`,
+      
             message: `Node '${node.label}' detects reification via phrase '${triggerFound}'. The Void is not an object; use phenomenological language (SAFE_VERBS).`,
+ main
             severity: 'error',
             nodeId: node.id
         };
